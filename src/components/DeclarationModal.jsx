@@ -22,48 +22,7 @@ import {
   Network,
   FileText,
 } from "lucide-react";
-
-// prende token salvato da AuthProvider/api.js (chiave: authToken)
-function getToken() {
-  try {
-    return localStorage.getItem("authToken") || "";
-  } catch {
-    return "";
-  }
-}
-
-// Helper fetch Xano (gestisce JSON + errori)
-const xanoFetch = async (path, { method = "GET", token, headers = {}, body } = {}) => {
-  const base = import.meta.env.VITE_XANO_BASE_URL; // es: https://x8ki-letl-twmt.n7.xano.io/api:42UxvCSQ
-  const url = `${base}${path}`;
-
-  const res = await fetch(url, {
-    method,
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
-    body,
-  });
-
-  const text = await res.text();
-  let data = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
-
-  if (!res.ok) {
-    console.error("XANO URL:", url);
-    console.error("XANO STATUS:", res.status);
-    console.error("XANO BODY:", data);
-    const msg = data?.message || data?.error || `Xano error ${res.status}`;
-    throw new Error(msg);
-  }
-
-  return data;
-};
+import { apiFetch } from "@/services/api";
 
 const CollapsibleSection = ({ title, icon: Icon, isOpen, onToggle, children, summary }) => (
   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
@@ -245,8 +204,6 @@ export default function DeclarationModal({ isOpen, onClose, cable, onSuccess }) 
     setLoading(true);
 
     try {
-      const token = getToken();
-
       const submissionToken =
         typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
           ? crypto.randomUUID()
@@ -259,12 +216,9 @@ export default function DeclarationModal({ isOpen, onClose, cable, onSuccess }) 
         submission_token: submissionToken,
       };
 
-      // ✅ endpoint giusto: niente /app
-      await xanoFetch(`/dichiara_lavoro`, {
+      await apiFetch("dichiara_lavoro", {
         method: "POST",
-        token,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: payload,
       });
 
       toast({ title: "Successo!", description: "Dichiarazione salvata correttamente." });
