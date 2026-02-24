@@ -134,7 +134,7 @@ function OperatorPageContent() {
 
     return items
       .filter((i: any) => {
-        const log = approvedById.get(i.work_logs_id);
+        const log: any = approvedById.get(i.work_logs_id);
         if (!log) return false;
         return isThisMonth(log.approved_at);
       })
@@ -148,7 +148,7 @@ function OperatorPageContent() {
 
     return items
       .filter((i: any) => {
-        const log = approvedById.get(i.work_logs_id);
+        const log: any = approvedById.get(i.work_logs_id);
         if (!log?.approved_at) return false;
         const d = new Date(log.approved_at);
         if (isNaN(d.getTime())) return false;
