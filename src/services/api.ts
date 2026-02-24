@@ -1,26 +1,29 @@
-// src/services/api.js
+// src/services/api.ts
 
-const AUTH_BASE_URL  = import.meta.env.VITE_XANO_AUTH_BASE_URL;   // https://.../api:AUTH
-const APP_BASE_URL   = import.meta.env.VITE_XANO_APP_BASE_URL;    // https://.../api:APP
-const ADMIN_BASE_URL = import.meta.env.VITE_XANO_ADMIN_BASE_URL;  // https://.../api:ADMIN
+const AUTH_BASE_URL  = process.env.NEXT_PUBLIC_XANO_AUTH_BASE_URL || "";   
+const APP_BASE_URL   = process.env.NEXT_PUBLIC_XANO_APP_BASE_URL || "";    
+const ADMIN_BASE_URL = process.env.NEXT_PUBLIC_XANO_ADMIN_BASE_URL || "";  
 
 const TOKEN_KEY = "authToken";
 const USER_KEY  = "authUser";
 
 // ---------------- TOKEN ----------------
-export function getToken() {
+export function getToken(): string {
+  if (typeof window === 'undefined') return "";
   return localStorage.getItem(TOKEN_KEY) || "";
 }
-export function setToken(token) {
-  if (!token) return;
+export function setToken(token: string) {
+  if (typeof window === 'undefined' || !token) return;
   localStorage.setItem(TOKEN_KEY, token);
 }
 export function clearToken() {
+  if (typeof window === 'undefined') return;
   localStorage.removeItem(TOKEN_KEY);
 }
 
 // ---------------- USER ----------------
-export function getUser() {
+export function getUser(): any {
+  if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem(USER_KEY);
   if (!raw) return null;
   try {
@@ -29,22 +32,23 @@ export function getUser() {
     return null;
   }
 }
-export function setUser(user) {
-  if (!user) return;
+export function setUser(user: any) {
+  if (typeof window === 'undefined' || !user) return;
   localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 export function clearUser() {
+  if (typeof window === 'undefined') return;
   localStorage.removeItem(USER_KEY);
 }
 
 // ---------------- URL HELPERS ----------------
-function joinUrl(base, path) {
+function joinUrl(base: string, path: string) {
   const b = String(base || "").replace(/\/+$/, "");
   const p = String(path || "").replace(/^\/+/, "");
   return `${b}/${p}`;
 }
 
-function buildUrl(path) {
+function buildUrl(path: string) {
   if (!path) throw new Error("Path mancante");
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
 
@@ -52,40 +56,43 @@ function buildUrl(path) {
 
   // AUTH group: "auth/..."
   if (p.startsWith("auth/")) {
-    if (!AUTH_BASE_URL) throw new Error("VITE_XANO_AUTH_BASE_URL mancante");
+    // Fallback if env vars are missing, though they should be present
+    if (!AUTH_BASE_URL) console.warn("NEXT_PUBLIC_XANO_AUTH_BASE_URL mancante");
     return joinUrl(AUTH_BASE_URL, p);
   }
 
   // ADMIN group: "admin/..."
   if (p.startsWith("admin/")) {
-    if (!ADMIN_BASE_URL) throw new Error("VITE_XANO_ADMIN_BASE_URL mancante");
-    // in Xano group "admin" gli endpoint sono "/technicians", "/import_work_logs", ecc.
+    if (!ADMIN_BASE_URL) console.warn("NEXT_PUBLIC_XANO_ADMIN_BASE_URL mancante");
     p = p.replace(/^admin\/+/, "");
     return joinUrl(ADMIN_BASE_URL, p);
   }
 
   // APP group
-  if (!APP_BASE_URL) throw new Error("VITE_XANO_APP_BASE_URL mancante");
+  if (!APP_BASE_URL) console.warn("NEXT_PUBLIC_XANO_APP_BASE_URL mancante");
   return joinUrl(APP_BASE_URL, p);
 }
 
 // ---------------- FETCH ----------------
-export async function apiFetch(path, options = {}) {
+interface ApiOptions extends RequestInit {
+  body?: any;
+}
+
+export async function apiFetch(path: string, options: ApiOptions = {}) {
   const url = buildUrl(path);
   const token = getToken();
 
   const method = String(options.method || "GET").toUpperCase();
   const hasBody = options.body !== undefined && options.body !== null;
 
-  const headers = {
+  const headers: HeadersInit = {
     ...(hasBody ? { "Content-Type": "application/json" } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(options.headers || {}),
+    ...(options.headers as Record<string, string> || {}),
   };
 
-  let body;
+  let body: BodyInit | null = null;
   if (hasBody) {
-    // ✅ fondamentale: Xano deve ricevere JSON vero
     body = typeof options.body === "string" ? options.body : JSON.stringify(options.body);
   }
 
@@ -105,13 +112,11 @@ export async function apiFetch(path, options = {}) {
       (typeof payload === "string" ? payload : "") ||
       `Errore API (${res.status})`;
 
-    // log utile in console
     console.error("API ERROR", {
       url,
       method,
       status: res.status,
       payload,
-      payload_str: typeof payload === "object" ? JSON.stringify(payload, null, 2) : String(payload),
     });
 
     throw new Error(msg);

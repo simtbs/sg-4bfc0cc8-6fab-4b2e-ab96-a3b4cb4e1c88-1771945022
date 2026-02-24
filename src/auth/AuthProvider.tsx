@@ -1,4 +1,3 @@
-// src/auth/AuthProvider.jsx
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
   apiFetch,
@@ -7,11 +6,26 @@ import {
   getToken,
   getUser,
   setToken,
-  setUser, // storage setter
+  setUser, 
 } from "@/services/api";
 
-// ✅ default NON NULL: evita crash per destructuring anche se Provider manca
-const DEFAULT_AUTH = {
+interface User {
+  id: number;
+  email: string;
+  role: string;
+  name?: string;
+  [key: string]: any;
+}
+
+interface AuthContextType {
+  user: User | null;
+  booting: boolean;
+  isAuthed: boolean;
+  login: (creds: { email?: string; password?: string }) => Promise<boolean>;
+  logout: () => void;
+}
+
+const DEFAULT_AUTH: AuthContextType = {
   user: null,
   booting: true,
   isAuthed: false,
@@ -21,9 +35,9 @@ const DEFAULT_AUTH = {
   logout: () => {},
 };
 
-const AuthCtx = createContext(DEFAULT_AUTH);
+const AuthCtx = createContext<AuthContextType>(DEFAULT_AUTH);
 
-function extractToken(res) {
+function extractToken(res: any): string {
   const tokenRaw = res?.authToken ?? res?.token;
 
   if (typeof tokenRaw === "string") return tokenRaw;
@@ -39,10 +53,8 @@ function extractToken(res) {
   return "";
 }
 
-function isAuthError(err) {
+function isAuthError(err: any): boolean {
   const msg = String(err?.message || "").toLowerCase();
-
-  // ⚠️ NON mettere msg.includes("token") generico: ti sloga su errori che non c’entrano
   return (
     msg.includes("401") ||
     msg.includes("unauthorized") ||
@@ -54,11 +66,10 @@ function isAuthError(err) {
   );
 }
 
-export function AuthProvider({ children }) {
-  const [user, setUserState] = useState(() => getUser());
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUserState] = useState<User | null>(() => getUser());
   const [booting, setBooting] = useState(true);
 
-  // BOOT: se ho token, provo /auth/me
   useEffect(() => {
     let alive = true;
 
@@ -66,7 +77,6 @@ export function AuthProvider({ children }) {
       try {
         const token = getToken();
 
-        // ✅ se non ho token: fine boot
         if (!token) {
           if (alive) {
             setUserState(null);
@@ -78,8 +88,8 @@ export function AuthProvider({ children }) {
         const me = await apiFetch("auth/me", { method: "GET" });
         if (!alive) return;
 
-        setUser(me);        // salva su localStorage
-        setUserState(me);   // salva in state
+        setUser(me);       
+        setUserState(me);   
       } catch (e) {
         if (alive && isAuthError(e)) {
           clearToken();
@@ -96,7 +106,7 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const login = async ({ email, password }) => {
+  const login = async ({ email, password }: { email?: string; password?: string }) => {
     const res = await apiFetch("auth/login", {
       method: "POST",
       body: { email, password },
@@ -107,7 +117,6 @@ export function AuthProvider({ children }) {
 
     setToken(token);
 
-    // se backend ritorna user lo salvo subito (opzionale)
     if (res?.user && typeof res.user === "object") {
       setUser(res.user);
       setUserState(res.user);
@@ -116,7 +125,6 @@ export function AuthProvider({ children }) {
       setUserState(null);
     }
 
-    // poi prendo SEMPRE /me per avere user coerente
     const me = await apiFetch("auth/me", { method: "GET" });
     setUser(me);
     setUserState(me);
@@ -144,11 +152,10 @@ export function AuthProvider({ children }) {
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }
 
-// ✅ guard: se qualcuno usa useAuth fuori provider te lo dice chiarissimo
 export const useAuth = () => {
   const ctx = useContext(AuthCtx);
   if (!ctx) {
-    throw new Error("useAuth() usato fuori da <AuthProvider>. Controlla App.jsx e gli import.");
+    throw new Error("useAuth() usato fuori da <AuthProvider>.");
   }
   return ctx;
 };

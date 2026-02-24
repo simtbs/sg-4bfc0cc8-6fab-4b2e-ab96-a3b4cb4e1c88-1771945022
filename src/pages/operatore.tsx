@@ -135,7 +135,8 @@ function OperatorPageContent() {
     return items
       .filter((i: any) => {
         const log = approvedById.get(i.work_logs_id);
-        return log && isThisMonth(log.approved_at);
+        if (!log) return false;
+        return isThisMonth(log.approved_at);
       })
       .reduce((sum: number, i: any) => sum + toNumber(i.total_price_client), 0);
   }, [items, approvedLogs, approvedById]);
